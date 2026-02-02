@@ -14,7 +14,200 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      nhl_match_events: {
+        Row: {
+          assist1: string | null
+          assist2: string | null
+          created_at: string
+          event_time: string | null
+          event_type: string | null
+          id: string
+          match_id: string | null
+          period: number | null
+          scorer: string
+          team: string
+        }
+        Insert: {
+          assist1?: string | null
+          assist2?: string | null
+          created_at?: string
+          event_time?: string | null
+          event_type?: string | null
+          id?: string
+          match_id?: string | null
+          period?: number | null
+          scorer: string
+          team: string
+        }
+        Update: {
+          assist1?: string | null
+          assist2?: string | null
+          created_at?: string
+          event_time?: string | null
+          event_type?: string | null
+          id?: string
+          match_id?: string | null
+          period?: number | null
+          scorer?: string
+          team?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nhl_match_events_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "nhl_matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nhl_matches: {
+        Row: {
+          away_score: number | null
+          away_team: string
+          created_at: string
+          home_score: number | null
+          home_team: string
+          id: string
+          match_date: string
+          match_time: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          away_score?: number | null
+          away_team: string
+          created_at?: string
+          home_score?: number | null
+          home_team: string
+          id?: string
+          match_date: string
+          match_time?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          away_score?: number | null
+          away_team?: string
+          created_at?: string
+          home_score?: number | null
+          home_team?: string
+          id?: string
+          match_date?: string
+          match_time?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      nhl_players: {
+        Row: {
+          assists: number | null
+          created_at: string
+          games_played: number | null
+          goals: number | null
+          id: string
+          name: string
+          position: string | null
+          team_abbreviation: string
+          updated_at: string
+        }
+        Insert: {
+          assists?: number | null
+          created_at?: string
+          games_played?: number | null
+          goals?: number | null
+          id?: string
+          name: string
+          position?: string | null
+          team_abbreviation: string
+          updated_at?: string
+        }
+        Update: {
+          assists?: number | null
+          created_at?: string
+          games_played?: number | null
+          goals?: number | null
+          id?: string
+          name?: string
+          position?: string | null
+          team_abbreviation?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      nhl_teams: {
+        Row: {
+          abbreviation: string
+          created_at: string
+          division: string | null
+          goals_against: number | null
+          goals_for: number | null
+          id: string
+          logo: string | null
+          losses: number | null
+          name: string
+          otl: number | null
+          updated_at: string
+          wins: number | null
+        }
+        Insert: {
+          abbreviation: string
+          created_at?: string
+          division?: string | null
+          goals_against?: number | null
+          goals_for?: number | null
+          id?: string
+          logo?: string | null
+          losses?: number | null
+          name: string
+          otl?: number | null
+          updated_at?: string
+          wins?: number | null
+        }
+        Update: {
+          abbreviation?: string
+          created_at?: string
+          division?: string | null
+          goals_against?: number | null
+          goals_for?: number | null
+          id?: string
+          logo?: string | null
+          losses?: number | null
+          name?: string
+          otl?: number | null
+          updated_at?: string
+          wins?: number | null
+        }
+        Relationships: []
+      }
+      sheet_settings: {
+        Row: {
+          created_at: string
+          id: string
+          last_sync_at: string | null
+          sheet_id: string
+          sheet_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          sheet_id: string
+          sheet_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_sync_at?: string | null
+          sheet_id?: string
+          sheet_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
