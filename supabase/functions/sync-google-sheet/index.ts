@@ -18,6 +18,20 @@ interface SheetRow {
   team?: string;
 }
 
+// Helper function to normalize headers
+const normalizeHeader = (h: string): string => 
+  h.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+// Helper function to find column index with multiple possible names
+const findColumn = (headers: string[], ...names: string[]): number => {
+  for (const name of names) {
+    const normalized = normalizeHeader(name);
+    const idx = headers.indexOf(normalized);
+    if (idx !== -1) return idx;
+  }
+  return -1;
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -39,7 +53,7 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { sheetId, sheetName = 'Sheet1', action = 'sync' } = await req.json();
+    const { sheetId, sheetName = 'Sheet1', calendarSheetName = 'Calendrier', action = 'sync' } = await req.json();
 
     if (!sheetId) {
       throw new Error('sheetId is required');
@@ -71,29 +85,19 @@ serve(async (req) => {
     }
 
     // Parse headers (first row) - normalize headers
-    const headers = rows[0].map((h: string) => h.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+    const headers = rows[0].map((h: string) => normalizeHeader(h));
     console.log('Headers found:', headers);
-
-    // Helper function to find column index with multiple possible names
-    const findColumn = (...names: string[]): number => {
-      for (const name of names) {
-        const normalized = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const idx = headers.indexOf(normalized);
-        if (idx !== -1) return idx;
-      }
-      return -1;
-    };
 
     // Map column indices with flexible naming
     const colIndex = {
-      date: findColumn('date'),
-      match: findColumn('match'),
-      scorer: findColumn('scorer', 'buteur', 'goal', 'but'),
-      assist1: findColumn('assist1', 'passeur1', 'passeur', 'assist', 'passe1'),
-      assist2: findColumn('assist2', 'passeur2', 'passe2'),
-      period: findColumn('period', 'periode'),
-      time: findColumn('time', 'temps', 'heure'),
-      team: findColumn('team', 'equipe', 'équipe'),
+      date: findColumn(headers, 'date'),
+      match: findColumn(headers, 'match'),
+      scorer: findColumn(headers, 'scorer', 'buteur', 'goal', 'but'),
+      assist1: findColumn(headers, 'assist1', 'passeur1', 'passeur', 'assist', 'passe1'),
+      assist2: findColumn(headers, 'assist2', 'passeur2', 'passe2'),
+      period: findColumn(headers, 'period', 'periode'),
+      time: findColumn(headers, 'time', 'temps', 'heure'),
+      team: findColumn(headers, 'team', 'equipe', 'équipe'),
     };
 
     console.log('Column indices:', colIndex);
@@ -201,6 +205,90 @@ serve(async (req) => {
       });
     }
 
+    // === SYNC CALENDAR/MATCHES ===
+    let matchesImported = 0;
+    
+    if (calendarSheetName) {
+      console.log(`Syncing calendar from sheet: ${calendarSheetName}`);
+      
+      const calendarRange = `${calendarSheetName}!A:E`;
+      const calendarUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(calendarRange)}?key=${GOOGLE_API_KEY}`;
+      
+      try {
+        const calendarResponse = await fetch(calendarUrl);
+        
+        if (calendarResponse.ok) {
+          const calendarData = await calendarResponse.json();
+          const calendarRows = calendarData.values || [];
+          
+          if (calendarRows.length >= 2) {
+            const calendarHeaders = calendarRows[0].map((h: string) => normalizeHeader(h));
+            console.log('Calendar headers found:', calendarHeaders);
+            
+            // Map calendar column indices
+            // Format: Date | Heure (GMT) | Visiteur (Abr.) | Receveur (Abr.) | Match Complet
+            const calColIndex = {
+              date: findColumn(calendarHeaders, 'date'),
+              time: findColumn(calendarHeaders, 'heure (gmt)', 'heure', 'time', 'temps'),
+              awayTeam: findColumn(calendarHeaders, 'visiteur (abr.)', 'visiteur', 'away', 'awayteam', 'away_team'),
+              homeTeam: findColumn(calendarHeaders, 'receveur (abr.)', 'receveur', 'home', 'hometeam', 'home_team'),
+              matchFull: findColumn(calendarHeaders, 'match complet', 'match', 'matchup'),
+            };
+            
+            console.log('Calendar column indices:', calColIndex);
+            
+            // Clear existing matches and insert new ones
+            await supabase.from('nhl_matches').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+            
+            for (let i = 1; i < calendarRows.length; i++) {
+              const row = calendarRows[i];
+              if (!row || row.length === 0) continue;
+              
+              const matchDate = calColIndex.date !== -1 ? row[calColIndex.date]?.trim() : null;
+              const matchTime = calColIndex.time !== -1 ? row[calColIndex.time]?.trim() : null;
+              const awayTeam = calColIndex.awayTeam !== -1 ? row[calColIndex.awayTeam]?.trim() : null;
+              const homeTeam = calColIndex.homeTeam !== -1 ? row[calColIndex.homeTeam]?.trim() : null;
+              
+              if (matchDate && homeTeam && awayTeam) {
+                // Parse date - handle various formats
+                let parsedDate = matchDate;
+                
+                // Try to parse DD/MM/YYYY format
+                const dateMatch = matchDate.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+                if (dateMatch) {
+                  parsedDate = `${dateMatch[3]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[1].padStart(2, '0')}`;
+                }
+                
+                const { error } = await supabase.from('nhl_matches').insert({
+                  match_date: parsedDate,
+                  match_time: matchTime || null,
+                  home_team: homeTeam,
+                  away_team: awayTeam,
+                  status: 'upcoming',
+                });
+                
+                if (!error) {
+                  matchesImported++;
+                  
+                  // Also add teams if not already present
+                  if (homeTeam) teams.add(homeTeam);
+                  if (awayTeam) teams.add(awayTeam);
+                } else {
+                  console.error('Error inserting match:', error);
+                }
+              }
+            }
+            
+            console.log(`Imported ${matchesImported} matches from calendar`);
+          }
+        } else {
+          console.log('Calendar sheet not found or not accessible, skipping matches sync');
+        }
+      } catch (calError) {
+        console.error('Error fetching calendar sheet:', calError);
+      }
+    }
+
     // Update sheet settings
     await supabase
       .from('sheet_settings')
@@ -218,6 +306,7 @@ serve(async (req) => {
           events: events.length,
           players: playerStats.size,
           teams: teams.size,
+          matches: matchesImported,
         },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -81,10 +81,13 @@ export function useNHLMatches() {
   return useQuery({
     queryKey: ['nhl-matches'],
     queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('nhl_matches')
         .select('*')
-        .order('match_date', { ascending: true });
+        .gte('match_date', today)
+        .order('match_date', { ascending: true })
+        .order('match_time', { ascending: true });
       
       if (error) throw error;
       return data as DBMatch[];

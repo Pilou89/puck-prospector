@@ -104,11 +104,12 @@ export function SheetConnector({ onSyncComplete }: SheetConnectorProps) {
         <div className="bg-muted/50 rounded-lg p-3 text-sm">
           <p className="font-semibold mb-2 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
-            Format supporté :
+            Onglets synchronisés :
           </p>
-          <code className="text-xs">
-            Date | Buteur | Passeur1 | Equipe | Match
-          </code>
+          <div className="space-y-1 text-xs">
+            <p><span className="font-medium">Statistiques:</span> Date | Buteur | Passeur1 | Equipe | Match</p>
+            <p><span className="font-medium">Calendrier:</span> Date | Heure (GMT) | Visiteur (Abr.) | Receveur (Abr.) | Match Complet</p>
+          </div>
           <p className="text-xs text-muted-foreground mt-2">
             Les noms de colonnes sont flexibles (buteur/scorer, equipe/team, etc.)
           </p>
