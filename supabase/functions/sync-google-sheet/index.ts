@@ -70,21 +70,30 @@ serve(async (req) => {
       );
     }
 
-    // Parse headers (first row)
-    const headers = rows[0].map((h: string) => h.toLowerCase().trim());
+    // Parse headers (first row) - normalize headers
+    const headers = rows[0].map((h: string) => h.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
     console.log('Headers found:', headers);
 
-    // Map column indices
+    // Helper function to find column index with multiple possible names
+    const findColumn = (...names: string[]): number => {
+      for (const name of names) {
+        const normalized = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const idx = headers.indexOf(normalized);
+        if (idx !== -1) return idx;
+      }
+      return -1;
+    };
+
+    // Map column indices with flexible naming
     const colIndex = {
-      date: headers.indexOf('date'),
-      homeTeam: headers.indexOf('home_team') !== -1 ? headers.indexOf('home_team') : headers.indexOf('hometeam'),
-      awayTeam: headers.indexOf('away_team') !== -1 ? headers.indexOf('away_team') : headers.indexOf('awayteam'),
-      scorer: headers.indexOf('scorer') !== -1 ? headers.indexOf('scorer') : headers.indexOf('buteur'),
-      assist1: headers.indexOf('assist1') !== -1 ? headers.indexOf('assist1') : headers.indexOf('passeur1'),
-      assist2: headers.indexOf('assist2') !== -1 ? headers.indexOf('assist2') : headers.indexOf('passeur2'),
-      period: headers.indexOf('period') !== -1 ? headers.indexOf('period') : headers.indexOf('periode'),
-      time: headers.indexOf('time') !== -1 ? headers.indexOf('time') : headers.indexOf('temps'),
-      team: headers.indexOf('team') !== -1 ? headers.indexOf('team') : headers.indexOf('equipe'),
+      date: findColumn('date'),
+      match: findColumn('match'),
+      scorer: findColumn('scorer', 'buteur', 'goal', 'but'),
+      assist1: findColumn('assist1', 'passeur1', 'passeur', 'assist', 'passe1'),
+      assist2: findColumn('assist2', 'passeur2', 'passe2'),
+      period: findColumn('period', 'periode'),
+      time: findColumn('time', 'temps', 'heure'),
+      team: findColumn('team', 'equipe', 'équipe'),
     };
 
     console.log('Column indices:', colIndex);
