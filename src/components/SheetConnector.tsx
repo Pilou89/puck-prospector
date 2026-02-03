@@ -104,11 +104,14 @@ export function SheetConnector({ onSyncComplete }: SheetConnectorProps) {
         <div className="bg-muted/50 rounded-lg p-3 text-sm">
           <p className="font-semibold mb-2 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
-            Format attendu des colonnes :
+            Format supporté :
           </p>
           <code className="text-xs">
-            date | scorer (buteur) | assist1 (passeur1) | assist2 (passeur2) | team (equipe) | period | time
+            Date | Buteur | Passeur1 | Equipe | Match
           </code>
+          <p className="text-xs text-muted-foreground mt-2">
+            Les noms de colonnes sont flexibles (buteur/scorer, equipe/team, etc.)
+          </p>
         </div>
 
         <Button 
