@@ -7,20 +7,21 @@ import { CombinationSuggester } from "@/components/CombinationSuggester";
 import { RecentEvents } from "@/components/RecentEvents";
 import { StatsOverview } from "@/components/StatsOverview";
 import { SheetConnector } from "@/components/SheetConnector";
-import { teams as mockTeams, players as mockPlayers, upcomingMatches, recentEvents, Match, Player, Team } from "@/data/mockData";
-import { useNHLPlayers, useNHLTeams, useNHLEvents } from "@/hooks/useNHLData";
+import { teams as mockTeams, players as mockPlayers, upcomingMatches as mockMatches, recentEvents, Match, Player, Team } from "@/data/mockData";
+import { useNHLPlayers, useNHLTeams, useNHLEvents, useNHLMatches } from "@/hooks/useNHLData";
 import { BarChart3, Users, Calendar, Zap, Target, Settings } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 const Index = () => {
-  const [selectedMatch, setSelectedMatch] = useState<Match | null>(upcomingMatches[0] || null);
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch data from database
   const { data: dbPlayers } = useNHLPlayers();
   const { data: dbTeams } = useNHLTeams();
   const { data: dbEvents } = useNHLEvents();
+  const { data: dbMatches } = useNHLMatches();
 
   // Use DB data if available, otherwise use mock data
   const players: Player[] = dbPlayers && dbPlayers.length > 0 
@@ -52,6 +53,19 @@ const Index = () => {
       }))
     : mockTeams;
 
+  const matches: Match[] = dbMatches && dbMatches.length > 0
+    ? dbMatches.map(m => ({
+        id: m.id,
+        homeTeam: m.home_team,
+        awayTeam: m.away_team,
+        date: m.match_date,
+        time: m.match_time || '00:00',
+        status: (m.status as Match['status']) || 'upcoming',
+        homeScore: m.home_score ?? undefined,
+        awayScore: m.away_score ?? undefined,
+      }))
+    : mockMatches;
+
   const events = dbEvents && dbEvents.length > 0
     ? dbEvents.map(e => ({
         id: e.id,
@@ -66,6 +80,9 @@ const Index = () => {
       }))
     : recentEvents;
 
+  // Set first match as selected when matches load
+  const currentSelectedMatch = selectedMatch || (matches.length > 0 ? matches[0] : null);
+
   const filteredPlayers = selectedTeam
     ? players.filter((p) => p.team === selectedTeam)
     : players;
@@ -75,6 +92,7 @@ const Index = () => {
     queryClient.invalidateQueries({ queryKey: ['nhl-players'] });
     queryClient.invalidateQueries({ queryKey: ['nhl-teams'] });
     queryClient.invalidateQueries({ queryKey: ['nhl-events'] });
+    queryClient.invalidateQueries({ queryKey: ['nhl-matches'] });
   };
 
   const hasDBData = (dbPlayers && dbPlayers.length > 0) || (dbTeams && dbTeams.length > 0);
@@ -134,14 +152,14 @@ const Index = () => {
             <div className="grid lg:grid-cols-3 gap-6">
               <div className="lg:col-span-1">
                 <UpcomingMatches
-                  matches={upcomingMatches}
+                  matches={matches}
                   onMatchSelect={setSelectedMatch}
-                  selectedMatchId={selectedMatch?.id}
+                  selectedMatchId={currentSelectedMatch?.id}
                 />
               </div>
               <div className="lg:col-span-2">
-                {selectedMatch ? (
-                  <CombinationSuggester match={selectedMatch} />
+                {currentSelectedMatch ? (
+                  <CombinationSuggester match={currentSelectedMatch} />
                 ) : (
                   <div className="flex items-center justify-center h-64 bg-muted/30 rounded-lg border">
                     <p className="text-muted-foreground">Sélectionnez un match pour voir les suggestions</p>
@@ -184,9 +202,9 @@ const Index = () => {
           <TabsContent value="matches" className="space-y-6">
             <div className="grid lg:grid-cols-2 gap-6">
               <UpcomingMatches
-                matches={upcomingMatches}
+                matches={matches}
                 onMatchSelect={setSelectedMatch}
-                selectedMatchId={selectedMatch?.id}
+                selectedMatchId={currentSelectedMatch?.id}
               />
               <RecentEvents events={events} />
             </div>
